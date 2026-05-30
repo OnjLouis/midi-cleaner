@@ -1,0 +1,12 @@
+bin/
+obj/
+release-stage/
+portable/
+*.zip
+*.log
+*.tmp
+*.user
+*.suo
+MidiCleaner.ini
+MidiCleaner.log
+token.txt
