@@ -56,6 +56,8 @@ The release package includes `MidiCleaner.exe`, `README.md`, and `LICENSE.txt`. 
 - Preferences has an Updates tab for GitHub release checks.
 - MIDI cleanup preferences use a checked list. Checked items are removed or normalized; unchecked items are kept.
 - MIDI cleanup can remove program changes, bank select, CC 7 volume, CC 10 pan, CC 11 expression, CC 91 reverb, CC 92 tremolo, CC 93 chorus, pitch bend, channel aftertouch, polyphonic aftertouch, sequencer-specific metadata, and original channel assignments.
+- Output defaults can save MIDI type 1 or MIDI type 0. Type 1 is the default.
+- Output defaults can ask where to save after choosing input, or immediately use saved output defaults.
 - After files are selected, the user chooses between `Create Output folders alongside the source files` and `Put all cleaned files in one folder`.
 - The output dialog includes `Add "cleaned" to output file names`, checked by default.
 - Alongside-source output files are written to an `Output` folder beside the originals as `name cleaned.mid`.
@@ -88,10 +90,11 @@ Useful switches:
 - `--keep-pitch-bend true|false`, `--keep-channel-aftertouch true|false`, and `--keep-poly-aftertouch true|false` override performance-message choices.
 - `--remove-sequencer-metadata true|false` or `--keep-sequencer-metadata` controls QWS/sequencer metadata removal.
 - `--normalize-channels true|false` or `--keep-channels` controls whether channel events are remapped to channel 1.
+- `--midi-type 0|1` controls the output MIDI file type.
 - `--log` writes to `MidiCleaner.log` beside the EXE, `--log=path` writes to a chosen file, and `--no-log` suppresses logging.
 
 Unspecified command-line options use `MidiCleaner.ini`.
-- Output is always MIDI type 1.
+- Output is MIDI type 1 by default.
 - Track names are preserved.
 - Tracks without note-on MIDI data are removed.
 - By default, all channel events are remapped to channel 1.

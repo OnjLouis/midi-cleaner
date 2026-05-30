@@ -103,8 +103,8 @@ Other standard metadata such as tempo and time signature.
 Unchecked cleanup items are kept.
 
 Output Format
-Output is always saved as MIDI type 1.
-All MIDI channel events are changed to channel 1.";
+Output is saved as MIDI type 1 by default. Preferences can save MIDI type 0 instead.
+MIDI channel events are changed to channel 1 by default. Preferences can keep original channel assignments instead.";
 
         public MainForm()
         {
@@ -356,55 +356,72 @@ All MIDI channel events are changed to channel 1.";
 
         private void ProcessPaths(List<string> paths)
         {
-            using (var outputDialog = new OutputLocationForm(paths.Count, settings))
+            var outputMode = settings.OutputMode;
+            var outputFolder = settings.OutputFolder;
+            var addCleaned = settings.AddCleanedToFileNames;
+
+            if (settings.AskForOutputLocationAfterInput)
             {
-                if (outputDialog.ShowDialog(this) != DialogResult.OK)
+                using (var outputDialog = new OutputLocationForm(paths.Count, settings))
                 {
-                    statusLabel.Text = "Cleaning cancelled before output location was chosen.";
-                    return;
-                }
-
-                settings.OutputMode = outputDialog.Mode;
-                settings.OutputFolder = outputDialog.SelectedOutputFolder;
-                settings.AddCleanedToFileNames = outputDialog.AddCleanedToFileNames;
-                SaveSettingsNonFatal();
-
-                resultsList.Items.Clear();
-                resultLines.Clear();
-                var successes = 0;
-                var failures = 0;
-                var stopwatch = Stopwatch.StartNew();
-
-                foreach (var path in paths)
-                {
-                    try
+                    if (outputDialog.ShowDialog(this) != DialogResult.OK)
                     {
-                        var result = MidiFileCleaner.CleanFile(path, outputDialog.Mode, outputDialog.SelectedOutputFolder, outputDialog.AddCleanedToFileNames, settings.CreateCleanOptions());
-                        successes++;
-                        var message = string.Format("Saved: {0}. Kept {1} track(s), removed {2} empty track(s), {3} note(s).",
-                            result.OutputPath, result.KeptTracks, result.RemovedTracks, result.NoteCount);
-                        AddResult(path, message);
+                        statusLabel.Text = "Cleaning cancelled before output location was chosen.";
+                        return;
                     }
-                    catch (Exception ex)
-                    {
-                        failures++;
-                        AddResult(path, "Error: " + ex.Message);
-                    }
-                }
 
-                stopwatch.Stop();
-                var elapsedText = FormatElapsed(stopwatch.Elapsed);
-                var summary = string.Format("Finished. {0} file(s) cleaned, {1} failed. Time taken: {2}.", successes, failures, elapsedText);
-                resultLines.Insert(0, summary);
-                statusLabel.Text = summary;
-                if (failures > 0)
-                {
-                    MessageBox.Show(this, statusLabel.Text + " Review the results list for details.", AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    outputMode = outputDialog.Mode;
+                    outputFolder = outputDialog.SelectedOutputFolder;
+                    addCleaned = outputDialog.AddCleanedToFileNames;
+                    settings.OutputMode = outputMode;
+                    settings.OutputFolder = outputFolder;
+                    settings.AddCleanedToFileNames = addCleaned;
+                    SaveSettingsNonFatal();
                 }
-                else
+            }
+
+            if (outputMode == OutputMode.SingleFolder && string.IsNullOrWhiteSpace(outputFolder))
+            {
+                MessageBox.Show(this, "Choose an output folder in Preferences, or turn on the option to ask where to save after choosing input.", AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                statusLabel.Text = "Cleaning cancelled because no output folder is configured.";
+                return;
+            }
+
+            resultsList.Items.Clear();
+            resultLines.Clear();
+            var successes = 0;
+            var failures = 0;
+            var stopwatch = Stopwatch.StartNew();
+
+            foreach (var path in paths)
+            {
+                try
                 {
-                    MessageBox.Show(this, statusLabel.Text, AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    var result = MidiFileCleaner.CleanFile(path, outputMode, outputFolder, addCleaned, settings.CreateCleanOptions());
+                    successes++;
+                    var message = string.Format("Saved: {0}. Kept {1} track(s), removed {2} empty track(s), {3} note(s).",
+                        result.OutputPath, result.KeptTracks, result.RemovedTracks, result.NoteCount);
+                    AddResult(path, message);
                 }
+                catch (Exception ex)
+                {
+                    failures++;
+                    AddResult(path, "Error: " + ex.Message);
+                }
+            }
+
+            stopwatch.Stop();
+            var elapsedText = FormatElapsed(stopwatch.Elapsed);
+            var summary = string.Format("Finished. {0} file(s) cleaned, {1} failed. Time taken: {2}.", successes, failures, elapsedText);
+            resultLines.Insert(0, summary);
+            statusLabel.Text = summary;
+            if (failures > 0)
+            {
+                MessageBox.Show(this, statusLabel.Text + " Review the results list for details.", AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            else
+            {
+                MessageBox.Show(this, statusLabel.Text, AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -774,6 +791,7 @@ All MIDI channel events are changed to channel 1.";
         public bool? KeepPolyAftertouch;
         public bool? RemoveSequencerMetadata;
         public bool? NormalizeChannelsToOne;
+        public int? OutputMidiType;
         public bool? LogEnabled;
         public string LogPath;
 
@@ -903,6 +921,15 @@ All MIDI channel events are changed to channel 1.";
                 else if (IsSwitch(arg, "--keep-channels"))
                 {
                     options.NormalizeChannelsToOne = false;
+                }
+                else if (TryReadValue(args, ref i, "--midi-type", out value) ||
+                         TryReadValue(args, ref i, "--output-midi-type", out value))
+                {
+                    int type;
+                    if (int.TryParse(value, out type) && (type == 0 || type == 1))
+                    {
+                        options.OutputMidiType = type;
+                    }
                 }
                 else if (arg.StartsWith("--log=", StringComparison.OrdinalIgnoreCase))
                 {
@@ -1053,6 +1080,7 @@ All MIDI channel events are changed to channel 1.";
             if (commandLine.KeepPolyAftertouch.HasValue) settings.KeepPolyAftertouch = commandLine.KeepPolyAftertouch.Value;
             if (commandLine.RemoveSequencerMetadata.HasValue) settings.RemoveSequencerMetadata = commandLine.RemoveSequencerMetadata.Value;
             if (commandLine.NormalizeChannelsToOne.HasValue) settings.NormalizeChannelsToOne = commandLine.NormalizeChannelsToOne.Value;
+            if (commandLine.OutputMidiType.HasValue) settings.OutputMidiType = commandLine.OutputMidiType.Value;
             if (commandLine.LogEnabled.HasValue) settings.LogSilentConversions = commandLine.LogEnabled.Value;
             if (!string.IsNullOrWhiteSpace(commandLine.LogPath)) settings.LogPath = commandLine.LogPath;
 
@@ -1190,6 +1218,8 @@ All MIDI channel events are changed to channel 1.";
                 "--remove-sequencer-metadata true|false or --keep-sequencer-metadata" + Environment.NewLine +
                 "--normalize-channels true|false or --keep-channels" + Environment.NewLine +
                 "Choose whether sequencer-specific metadata is removed and whether channel events are changed to channel 1." + Environment.NewLine + Environment.NewLine +
+                "--midi-type 0|1" + Environment.NewLine +
+                "Choose the output MIDI file type." + Environment.NewLine + Environment.NewLine +
                 "--log, --log=path, or --no-log" + Environment.NewLine +
                 "Write or suppress a silent conversion log. If no path is supplied, MidiCleaner.log beside the EXE is used." + Environment.NewLine + Environment.NewLine +
                 "Unspecified options use MidiCleaner.ini beside the EXE.";
@@ -1512,6 +1542,8 @@ All MIDI channel events are changed to channel 1.";
         public bool KeepPolyAftertouch = true;
         public bool RemoveSequencerMetadata = true;
         public bool NormalizeChannelsToOne = true;
+        public int OutputMidiType = 1;
+        public bool AskForOutputLocationAfterInput = true;
         public bool LogSilentConversions = false;
         public string LogPath = string.Empty;
         public bool SendToEnabled = false;
@@ -1626,6 +1658,18 @@ All MIDI channel events are changed to channel 1.";
                 {
                     settings.NormalizeChannelsToOne = ParseBool(value, settings.NormalizeChannelsToOne);
                 }
+                else if (key.Equals("OutputMidiType", StringComparison.OrdinalIgnoreCase))
+                {
+                    int type;
+                    if (int.TryParse(value, out type) && (type == 0 || type == 1))
+                    {
+                        settings.OutputMidiType = type;
+                    }
+                }
+                else if (key.Equals("AskForOutputLocationAfterInput", StringComparison.OrdinalIgnoreCase))
+                {
+                    settings.AskForOutputLocationAfterInput = ParseBool(value, settings.AskForOutputLocationAfterInput);
+                }
                 else if (key.Equals("LogSilentConversions", StringComparison.OrdinalIgnoreCase))
                 {
                     settings.LogSilentConversions = ParseBool(value, settings.LogSilentConversions);
@@ -1684,7 +1728,8 @@ All MIDI channel events are changed to channel 1.";
                 KeepChannelAftertouch = KeepChannelAftertouch,
                 KeepPolyAftertouch = KeepPolyAftertouch,
                 RemoveSequencerMetadata = RemoveSequencerMetadata,
-                NormalizeChannelsToOne = NormalizeChannelsToOne
+                NormalizeChannelsToOne = NormalizeChannelsToOne,
+                OutputMidiType = OutputMidiType
             };
         }
 
@@ -1753,6 +1798,8 @@ All MIDI channel events are changed to channel 1.";
                 "KeepPolyAftertouch=" + KeepPolyAftertouch,
                 "RemoveSequencerMetadata=" + RemoveSequencerMetadata,
                 "NormalizeChannelsToOne=" + NormalizeChannelsToOne,
+                "OutputMidiType=" + OutputMidiType,
+                "AskForOutputLocationAfterInput=" + AskForOutputLocationAfterInput,
                 "LogSilentConversions=" + LogSilentConversions,
                 "LogPath=" + LogPath,
                 "SendToEnabled=" + SendToEnabled,
@@ -1971,6 +2018,8 @@ All MIDI channel events are changed to channel 1.";
         private readonly TextBox outputFolderTextBox;
         private readonly Button outputBrowseButton;
         private readonly CheckBox addCleanedCheckBox;
+        private readonly CheckBox askForOutputLocationCheckBox;
+        private readonly ComboBox outputMidiTypeBox;
         private readonly CheckBox logSilentConversionsCheckBox;
         private readonly TextBox logPathTextBox;
         private readonly Button logBrowseButton;
@@ -2124,6 +2173,26 @@ All MIDI channel events are changed to channel 1.";
             addCleanedCheckBox = CreateCheckBox("Add \"cleaned\" to output file &names", settings.AddCleanedToFileNames, "When checked, output files include the word cleaned before the file extension.");
             outputPanel.Controls.Add(addCleanedCheckBox);
 
+            askForOutputLocationCheckBox = CreateCheckBox("&Ask where to save after choosing input", settings.AskForOutputLocationAfterInput, "When checked, MidiCleaner asks for output choices every time files or folders are opened. When unchecked, saved output defaults are used immediately.");
+            outputPanel.Controls.Add(askForOutputLocationCheckBox);
+
+            outputPanel.Controls.Add(new Label
+            {
+                Text = "MIDI output type:",
+                AutoSize = true,
+                AccessibleRole = AccessibleRole.StaticText
+            });
+            outputMidiTypeBox = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Width = 180,
+                AccessibleRole = AccessibleRole.ComboBox,
+                AccessibleName = "MIDI output type"
+            };
+            outputMidiTypeBox.Items.AddRange(new object[] { "Type 1", "Type 0" });
+            outputMidiTypeBox.SelectedIndex = settings.OutputMidiType == 0 ? 1 : 0;
+            outputPanel.Controls.Add(outputMidiTypeBox);
+
             var automationTab = new TabPage("Automation");
             automationTab.AccessibleName = "Automation";
             tabs.TabPages.Add(automationTab);
@@ -2245,6 +2314,8 @@ All MIDI channel events are changed to channel 1.";
             settings.OutputMode = outputSingleFolderRadio.Checked ? OutputMode.SingleFolder : OutputMode.AlongsideSourceFiles;
             settings.OutputFolder = outputFolderTextBox.Text.Trim();
             settings.AddCleanedToFileNames = addCleanedCheckBox.Checked;
+            settings.AskForOutputLocationAfterInput = askForOutputLocationCheckBox.Checked;
+            settings.OutputMidiType = outputMidiTypeBox.SelectedIndex == 1 ? 0 : 1;
             settings.LogSilentConversions = logSilentConversionsCheckBox.Checked;
             settings.LogPath = logPathTextBox.Text.Trim();
             settings.SendToEnabled = sendToCheckBox.Checked;
@@ -2495,6 +2566,7 @@ All MIDI channel events are changed to channel 1.";
         public bool KeepPolyAftertouch = true;
         public bool RemoveSequencerMetadata = true;
         public bool NormalizeChannelsToOne = true;
+        public int OutputMidiType = 1;
     }
 
     internal sealed class CleanResult
@@ -2538,7 +2610,7 @@ All MIDI channel events are changed to channel 1.";
 
             var outputPath = GetOutputPath(inputPath, mode, selectedOutputFolder, addCleanedToFileName);
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
-            File.WriteAllBytes(outputPath, BuildMidi(division, cleanedTracks));
+            File.WriteAllBytes(outputPath, BuildMidi(division, cleanedTracks, options.OutputMidiType));
 
             return new CleanResult
             {
@@ -2811,13 +2883,18 @@ All MIDI channel events are changed to channel 1.";
             return lastMeta == 0x2F;
         }
 
-        private static byte[] BuildMidi(int division, List<byte[]> tracks)
+        private static byte[] BuildMidi(int division, List<byte[]> tracks, int outputMidiType)
         {
+            if (outputMidiType == 0)
+            {
+                tracks = new List<byte[]> { MergeTracksForType0(tracks) };
+            }
+
             using (var stream = new MemoryStream())
             {
                 WriteAscii(stream, "MThd");
                 WriteUInt32(stream, 6);
-                WriteUInt16(stream, 1);
+                WriteUInt16(stream, outputMidiType == 0 ? 0 : 1);
                 WriteUInt16(stream, tracks.Count);
                 WriteUInt16(stream, division);
 
@@ -2829,6 +2906,150 @@ All MIDI channel events are changed to channel 1.";
                 }
 
                 return stream.ToArray();
+            }
+        }
+
+        private static byte[] MergeTracksForType0(List<byte[]> tracks)
+        {
+            var events = new List<TimedMidiEvent>();
+            var order = 0;
+            foreach (var track in tracks)
+            {
+                foreach (var midiEvent in ReadTimedEvents(track))
+                {
+                    if (!midiEvent.IsEndOfTrack)
+                    {
+                        midiEvent.Order = order++;
+                        events.Add(midiEvent);
+                    }
+                }
+            }
+
+            events.Sort(delegate(TimedMidiEvent left, TimedMidiEvent right)
+            {
+                var tickCompare = left.Tick.CompareTo(right.Tick);
+                return tickCompare != 0 ? tickCompare : left.Order.CompareTo(right.Order);
+            });
+
+            var output = new List<byte>();
+            var lastTick = 0;
+            foreach (var midiEvent in events)
+            {
+                WriteVariableLength(output, midiEvent.Tick - lastTick);
+                output.AddRange(midiEvent.Data);
+                lastTick = midiEvent.Tick;
+            }
+
+            WriteVariableLength(output, 0);
+            output.Add(0xFF);
+            output.Add(0x2F);
+            output.Add(0x00);
+            return output.ToArray();
+        }
+
+        private static List<TimedMidiEvent> ReadTimedEvents(byte[] track)
+        {
+            var events = new List<TimedMidiEvent>();
+            var pos = 0;
+            var tick = 0;
+            int runningStatus = -1;
+            while (pos < track.Length)
+            {
+                int delta;
+                pos = ReadVariableLength(track, pos, out delta);
+                tick += delta;
+                if (pos >= track.Length)
+                {
+                    throw new InvalidDataException("A MIDI event is missing its status byte.");
+                }
+
+                var start = pos;
+                var first = track[pos];
+                int status;
+                if (first < 0x80)
+                {
+                    if (runningStatus < 0)
+                    {
+                        throw new InvalidDataException("Running status was used before any status byte.");
+                    }
+                    status = runningStatus;
+                }
+                else
+                {
+                    pos++;
+                    status = first;
+                    if (status < 0xF0)
+                    {
+                        runningStatus = status;
+                    }
+                    else if (status == 0xF0 || status == 0xF7 || status == 0xFF)
+                    {
+                        runningStatus = -1;
+                    }
+                }
+
+                if (status == 0xFF)
+                {
+                    if (pos >= track.Length)
+                    {
+                        throw new InvalidDataException("A meta event is truncated.");
+                    }
+                    var metaType = track[pos++];
+                    int length;
+                    pos = ReadVariableLength(track, pos, out length);
+                    if (pos + length > track.Length)
+                    {
+                        throw new InvalidDataException("A meta event value is truncated.");
+                    }
+                    pos += length;
+                    events.Add(new TimedMidiEvent(track, start, pos - start, tick, metaType == 0x2F));
+                    continue;
+                }
+
+                if (status == 0xF0 || status == 0xF7)
+                {
+                    int length;
+                    pos = ReadVariableLength(track, pos, out length);
+                    if (pos + length > track.Length)
+                    {
+                        throw new InvalidDataException("A SysEx event is truncated.");
+                    }
+                    pos += length;
+                    events.Add(new TimedMidiEvent(track, start, pos - start, tick, false));
+                    continue;
+                }
+
+                if (status < 0x80 || status > 0xEF)
+                {
+                    throw new InvalidDataException("Unsupported MIDI event status 0x" + status.ToString("X2") + ".");
+                }
+
+                var eventType = status & 0xF0;
+                var dataLength = (eventType == 0xC0 || eventType == 0xD0) ? 1 : 2;
+                if (pos + dataLength > track.Length)
+                {
+                    throw new InvalidDataException("A channel event is truncated.");
+                }
+                pos += dataLength;
+                events.Add(new TimedMidiEvent(track, start, pos - start, tick, false));
+            }
+
+            return events;
+        }
+
+        private sealed class TimedMidiEvent
+        {
+            public readonly int Tick;
+            public int Order;
+            public readonly byte[] Data;
+            public readonly bool IsEndOfTrack;
+
+            public TimedMidiEvent(byte[] source, int offset, int length, int tick, bool isEndOfTrack)
+            {
+                Tick = tick;
+                IsEndOfTrack = isEndOfTrack;
+                Data = new byte[length];
+                Buffer.BlockCopy(source, offset, Data, 0, length);
             }
         }
 
