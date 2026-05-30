@@ -14,13 +14,19 @@ Run:
 .\Build.ps1
 ```
 
-The build script uses the Windows .NET Framework C# compiler and writes:
+The build script uses the Windows .NET Framework C# compiler and writes the executable to:
 
 ```text
-D:\Dropbox\SOFTWARE\MidiCleaner\MidiCleaner.exe
+portable\MidiCleaner.exe
 ```
 
-The build script creates `MidiCleaner.ini` beside the executable only when it does not already exist. It does not overwrite existing portable settings.
+To choose another output path:
+
+```powershell
+.\Build.ps1 -OutputPath "C:\Tools\MidiCleaner\MidiCleaner.exe"
+```
+
+The build script does not create an INI file by default. Use `-CreateDefaultIni` when you want a starter `MidiCleaner.ini` beside the executable. It does not overwrite existing portable settings.
 
 ## Release
 

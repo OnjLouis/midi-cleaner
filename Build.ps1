@@ -1,8 +1,13 @@
+param(
+    [string]$OutputPath = "$PSScriptRoot\portable\MidiCleaner.exe",
+    [switch]$CreateDefaultIni
+)
+
 $ErrorActionPreference = "Stop"
 
 $sourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$targetDir = "D:\Dropbox\SOFTWARE\MidiCleaner"
-$targetExe = Join-Path $targetDir "MidiCleaner.exe"
+$targetExe = $OutputPath
+$targetDir = Split-Path -Parent $targetExe
 $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 
 if (-not (Test-Path $csc)) {
@@ -35,7 +40,7 @@ if ($LASTEXITCODE -ne 0) {
 Get-Item $targetExe
 
 $iniPath = Join-Path $targetDir "MidiCleaner.ini"
-if (-not (Test-Path $iniPath)) {
+if ($CreateDefaultIni -and -not (Test-Path $iniPath)) {
     @"
 [Settings]
 OutputMode=AlongsideSourceFiles

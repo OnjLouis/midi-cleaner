@@ -37,8 +37,7 @@ function Get-GitHubReleaseToken {
 
     $tokenPaths = @(
         (Join-Path (Split-Path -Parent $repoRoot) 'token.txt'),
-        (Join-Path $repoRoot 'token.txt'),
-        'D:\Dropbox\backups\Codex\current\token.txt'
+        (Join-Path $repoRoot 'token.txt')
     )
 
     foreach ($path in $tokenPaths) {
@@ -97,15 +96,18 @@ function Assert-PackageClean([string]$zipPath) {
 }
 
 function New-ReleasePackage([string]$version) {
-    Info 'Building executable.'
-    & (Join-Path $repoRoot 'Build.ps1') | Out-Host
-
     Remove-Item -LiteralPath $portableDir -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $stageDir -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
     New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
 
-    Copy-Item -LiteralPath 'D:\Dropbox\SOFTWARE\MidiCleaner\MidiCleaner.exe' -Destination (Join-Path $portableDir 'MidiCleaner.exe') -Force
+    Info 'Building executable.'
+    & (Join-Path $repoRoot 'Build.ps1') | Out-Host
+
+    $builtExe = Join-Path $portableDir 'MidiCleaner.exe'
+    if (-not (Test-Path -LiteralPath $builtExe)) {
+        Fail "Build did not produce $builtExe."
+    }
     Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md') -Destination (Join-Path $portableDir 'README.md') -Force
     Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE.txt') -Destination (Join-Path $portableDir 'LICENSE.txt') -Force
 
