@@ -14,9 +14,13 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 [assembly: AssemblyTitle("MidiCleaner")]
+[assembly: AssemblyDescription("Accessible MIDI cleanup utility")]
+[assembly: AssemblyCompany("Andre Louis")]
 [assembly: AssemblyProduct("MidiCleaner")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyCopyright("Copyright (c) Andre Louis")]
+[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyInformationalVersion("1.1")]
 
 namespace MidiCleaner
 {
@@ -40,7 +44,7 @@ namespace MidiCleaner
     internal sealed class MainForm : Form
     {
         private const string AppName = "MidiCleaner";
-        private const string Version = "1.0";
+        private const string Version = "1.1";
         private const string ProjectUrl = "https://github.com/OnjLouis/midi-cleaner";
 
         private readonly Label statusLabel;
@@ -62,6 +66,7 @@ MidiCleaner removes setup and sequencer data from MIDI files so they can be load
 Keyboard
 Ctrl+O: Open one or more MIDI files.
 Ctrl+F: Open a folder and process all .mid and .midi files in that folder.
+Ctrl+F1: Open the project page on GitHub.
 F1: Show this help.
 F4: Review the selected result, or all results if none is selected.
 Ctrl+Comma: Open Preferences.
@@ -74,6 +79,8 @@ File > Exit: close the program.
 Options > Preferences: choose which MIDI messages and controllers are removed.
 Help > Check for Updates: check GitHub Releases for a newer version.
 Help > Version History: show the latest GitHub release notes.
+Help > Project on GitHub: open the project page.
+Help > Donate: open onj.me/donate if you want to support development.
 Help > MidiCleaner Help: show this help.
 Help > About: show program version.
 
@@ -249,10 +256,14 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
             var help = new ToolStripMenuItem("&Help");
             var checkUpdates = new ToolStripMenuItem("&Check for Updates...", null, delegate { CheckForUpdates(true, true); }, Keys.Shift | Keys.F1);
             var versionHistory = new ToolStripMenuItem("&Version History...", null, delegate { ShowVersionHistoryDialog(); });
+            var project = new ToolStripMenuItem("&Project on GitHub", null, delegate { OpenProjectPage(); }, Keys.Control | Keys.F1);
+            var donate = new ToolStripMenuItem("&Donate...", null, delegate { OpenDonatePage(); });
             var helpItem = new ToolStripMenuItem("MidiCleaner &Help", null, delegate { ShowHelp(); }, Keys.F1);
             var about = new ToolStripMenuItem("&About MidiCleaner", null, delegate { ShowAbout(); });
             help.DropDownItems.Add(checkUpdates);
             help.DropDownItems.Add(versionHistory);
+            help.DropDownItems.Add(project);
+            help.DropDownItems.Add(donate);
             help.DropDownItems.Add(new ToolStripSeparator());
             help.DropDownItems.Add(helpItem);
             help.DropDownItems.Add(about);
@@ -284,6 +295,12 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            if (keyData == (Keys.Control | Keys.F1))
+            {
+                OpenProjectPage();
+                return true;
+            }
+
             if (keyData == (Keys.Control | Keys.Oemcomma))
             {
                 ShowPreferences();
@@ -488,9 +505,9 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
             ShowTextDialog("About MidiCleaner",
                 AppName + " " + Version + Environment.NewLine + Environment.NewLine +
                 "Accessible MIDI cleanup utility." + Environment.NewLine + Environment.NewLine +
+                "Project page:" + Environment.NewLine +
                 ProjectUrl + Environment.NewLine + Environment.NewLine +
-                "Created by Codex." + Environment.NewLine +
-                "Ideas by Andre Louis.");
+                "Created by Andre Louis with Codex.");
         }
 
         private void ShowPreferences()
@@ -515,7 +532,7 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
                 UseWaitCursor = true;
                 var releases = UpdateService.FetchReleases(ProjectUrl, Version);
                 var release = UpdateService.LatestVersionedRelease(releases) ?? UpdateService.FetchLatestRelease(ProjectUrl, Version);
-                var latest = release == null ? string.Empty : (release.TagName ?? string.Empty).Trim();
+                var latest = release == null ? string.Empty : (release.tag_name ?? string.Empty).Trim();
                 var latestVersion = latest.TrimStart('v', 'V');
                 System.Version current;
                 System.Version remote;
@@ -609,7 +626,7 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
 
                     var releases = UpdateService.FetchReleases(ProjectUrl, Version);
                     var release = UpdateService.LatestVersionedRelease(releases) ?? UpdateService.FetchLatestRelease(ProjectUrl, Version);
-                    var latest = release == null ? string.Empty : (release.TagName ?? string.Empty).Trim();
+                    var latest = release == null ? string.Empty : (release.tag_name ?? string.Empty).Trim();
                     System.Version current;
                     System.Version remote;
                     if (!System.Version.TryParse(Version, out current) || !System.Version.TryParse(latest.TrimStart('v', 'V'), out remote) || remote <= current)
@@ -639,7 +656,7 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
 
         private void ShowUpdateAvailableDialog(GitHubReleaseInfo release, string latest, string releaseNotes)
         {
-            var releaseUrl = release == null || string.IsNullOrWhiteSpace(release.HtmlUrl) ? ProjectUrl + "/releases" : release.HtmlUrl;
+            var releaseUrl = release == null || string.IsNullOrWhiteSpace(release.html_url) ? ProjectUrl + "/releases" : release.html_url;
             var zipAsset = UpdateService.FindPortableZipAsset(release);
 
             using (var dialog = new Form())
@@ -665,7 +682,7 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
                 if (zipAsset != null)
                 {
                     var installButton = new Button { Text = "&Download and install", AutoSize = true, AccessibleRole = AccessibleRole.PushButton, AccessibleName = "Download and install update" };
-                    installButton.Click += delegate { dialog.DialogResult = DialogResult.OK; dialog.Close(); StartUpdate(zipAsset.BrowserDownloadUrl); };
+                    installButton.Click += delegate { dialog.DialogResult = DialogResult.OK; dialog.Close(); StartUpdate(zipAsset.browser_download_url); };
                     buttons.Controls.Add(installButton);
                     dialog.AcceptButton = installButton;
                 }
@@ -688,9 +705,9 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
                 UseWaitCursor = true;
                 var releases = UpdateService.FetchReleases(ProjectUrl, Version);
                 var release = UpdateService.LatestVersionedRelease(releases) ?? UpdateService.FetchLatestRelease(ProjectUrl, Version);
-                var version = release == null ? Version : (release.TagName ?? Version).Trim().TrimStart('v', 'V');
-                var releaseUrl = release == null || string.IsNullOrWhiteSpace(release.HtmlUrl) ? ProjectUrl + "/releases" : release.HtmlUrl;
-                var notes = UpdateService.FormatReleaseNotesForDialog(release == null ? string.Empty : release.Body, "No release notes were provided for this update.");
+                var version = release == null ? Version : (release.tag_name ?? Version).Trim().TrimStart('v', 'V');
+                var releaseUrl = release == null || string.IsNullOrWhiteSpace(release.html_url) ? ProjectUrl + "/releases" : release.html_url;
+                var notes = UpdateService.FormatReleaseNotesForDialog(release == null ? string.Empty : release.body, "No release notes were provided for this update.");
                 using (var dialog = new TextReviewForm("Version History - " + version, "Latest release: " + version + Environment.NewLine + Environment.NewLine + notes))
                 {
                     dialog.ShowDialog(this);
@@ -707,10 +724,32 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
             }
         }
 
+        private void OpenDonatePage()
+        {
+            OpenExternalPage("https://onj.me/donate", "Could not open the donation page.");
+        }
+
+        private void OpenProjectPage()
+        {
+            OpenExternalPage(ProjectUrl, "Could not open the project page.");
+        }
+
+        private void OpenExternalPage(string url, string errorTitle)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, errorTitle + Environment.NewLine + Environment.NewLine + ex.Message, AppName, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
         private bool TryStartUpdate(GitHubReleaseInfo release, bool showErrors)
         {
             var zipAsset = UpdateService.FindPortableZipAsset(release);
-            if (zipAsset == null || string.IsNullOrWhiteSpace(zipAsset.BrowserDownloadUrl))
+            if (zipAsset == null || string.IsNullOrWhiteSpace(zipAsset.browser_download_url))
             {
                 if (showErrors)
                 {
@@ -719,7 +758,7 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
                 return false;
             }
 
-            StartUpdate(zipAsset.BrowserDownloadUrl);
+            StartUpdate(zipAsset.browser_download_url);
             return true;
         }
 
@@ -1232,20 +1271,12 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
         public string html_url { get; set; }
         public string body { get; set; }
         public List<GitHubReleaseAsset> assets { get; set; }
-
-        public string TagName { get { return tag_name; } }
-        public string HtmlUrl { get { return html_url; } }
-        public string Body { get { return body; } }
-        public List<GitHubReleaseAsset> Assets { get { return assets ?? new List<GitHubReleaseAsset>(); } }
     }
 
     internal sealed class GitHubReleaseAsset
     {
         public string name { get; set; }
         public string browser_download_url { get; set; }
-
-        public string Name { get { return name; } }
-        public string BrowserDownloadUrl { get { return browser_download_url; } }
     }
 
     internal static class UpdateService
@@ -1287,11 +1318,11 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
                 return null;
             }
 
-            return release.Assets
-                .Where(a => a != null && !string.IsNullOrWhiteSpace(a.BrowserDownloadUrl) && !string.IsNullOrWhiteSpace(a.Name))
-                .Where(a => a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(a => a.Name.IndexOf("portable", StringComparison.OrdinalIgnoreCase) >= 0)
-                .ThenByDescending(a => a.Name.IndexOf("midi", StringComparison.OrdinalIgnoreCase) >= 0)
+            return (release.assets ?? new List<GitHubReleaseAsset>())
+                .Where(a => a != null && !string.IsNullOrWhiteSpace(a.browser_download_url) && !string.IsNullOrWhiteSpace(a.name))
+                .Where(a => a.name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(a => a.name.IndexOf("portable", StringComparison.OrdinalIgnoreCase) >= 0)
+                .ThenByDescending(a => a.name.IndexOf("midi", StringComparison.OrdinalIgnoreCase) >= 0)
                 .FirstOrDefault();
         }
 
@@ -1317,8 +1348,8 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
 
             foreach (var item in newer)
             {
-                builder.AppendLine(item.Release.TagName);
-                builder.AppendLine(FormatReleaseNotesForDialog(item.Release.Body, "No release notes were provided for this update."));
+                builder.AppendLine(item.Release.tag_name);
+                builder.AppendLine(FormatReleaseNotesForDialog(item.Release.body, "No release notes were provided for this update."));
                 builder.AppendLine();
             }
 
@@ -1421,8 +1452,8 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
                 "  if (-not (Test-Path -LiteralPath (Join-Path $source 'MidiCleaner.exe'))) { throw 'The downloaded ZIP does not contain MidiCleaner.exe.' }\r\n" +
                 "  Get-Process -Id $pidToWait -ErrorAction SilentlyContinue | Wait-Process\r\n" +
                 "  Get-ChildItem -LiteralPath $source -Force | ForEach-Object {\r\n" +
-                "    if ($_.Name -ieq 'MidiCleaner.ini' -or $_.Name -ieq 'MidiCleaner.log') { return }\r\n" +
-                "    Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $target $_.Name) -Recurse -Force\r\n" +
+                "    if ($_.name -ieq 'MidiCleaner.ini' -or $_.name -ieq 'MidiCleaner.log') { return }\r\n" +
+                "    Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $target $_.name) -Recurse -Force\r\n" +
                 "  }\r\n" +
                 "  Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue\r\n" +
                 "  Start-Process -FilePath $exe\r\n" +
@@ -1446,13 +1477,13 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
 
         private static System.Version ReleaseVersion(GitHubReleaseInfo release)
         {
-            if (release == null || string.IsNullOrWhiteSpace(release.TagName))
+            if (release == null || string.IsNullOrWhiteSpace(release.tag_name))
             {
                 return null;
             }
 
             System.Version version;
-            return System.Version.TryParse(release.TagName.Trim().TrimStart('v', 'V'), out version) ? version : null;
+            return System.Version.TryParse(release.tag_name.Trim().TrimStart('v', 'V'), out version) ? version : null;
         }
 
         private static string PowerShellQuote(string value)
@@ -3154,3 +3185,4 @@ MIDI channel events are changed to channel 1 by default. Preferences can keep or
         }
     }
 }
+

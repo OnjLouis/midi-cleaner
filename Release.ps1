@@ -154,12 +154,10 @@ function Publish-GitHubRelease([string]$version, [string]$zipPath) {
     $releaseBody = @"
 MidiCleaner $version
 
-- Initial public release.
-- Accessible WinForms MIDI cleanup utility.
-- Portable settings in MidiCleaner.ini beside the executable.
-- Built-in F1 help.
-- Silent command-line and Windows Send To support.
-- GitHub update checks.
+- Fixes GitHub update checks in the app.
+- Adds Ctrl+F1 and Help > Project on GitHub.
+- Adds Help > Donate.
+- Aligns About and executable metadata with the companion apps.
 "@
 
     $release = $null

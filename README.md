@@ -2,7 +2,7 @@
 
 Single-file Windows MIDI cleanup utility with a screen-reader-friendly WinForms interface.
 
-Current version: 1.0.
+Current version: 1.1.
 
 Project page: <https://github.com/OnjLouis/midi-cleaner>
 
