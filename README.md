@@ -6,6 +6,10 @@ Current version: 1.1.
 
 Project page: <https://github.com/OnjLouis/midi-cleaner>
 
+## Upgrading from 1.0
+
+MidiCleaner 1.0 has a known updater bug that can show `Ambiguous match found` when checking for updates. If you are on 1.0, download and install 1.1 manually once. Future update checks work from 1.1 onward.
+
 ## Build
 
 Run:
